@@ -22,9 +22,9 @@ You can generate SQL script to create Interbase/Firebird database based on your 
 * Detailed online help, FAQ and support available from our website.
 * Sources available.
 
-[**Please take a tour to learn more about Interbase DataPump.**](https://www.clevercomponents.com/products/datapump/dp-tour.asp)
+[**Please take a tour to learn more about Interbase DataPump**](https://www.clevercomponents.com/products/datapump/dp-tour.asp)
 
 ## Important
 * This is "One Hour Solution" - in most cases it takes even less than an hour to pump data to your Interbase database.
-* Interbase DataPump is a freeware product.
+* Interbase DataPump is a freeware product: [**Download Interbase DataPump**](https://www.clevercomponents.com/downloads/datapump/)
 
