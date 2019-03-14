@@ -1,0 +1,53 @@
+{
+  Copyright (c) 2000-2002 CleverComponents.com
+  Product: CleverComponents Interbase DataPump VCL
+  Author: Alexandre Poloziouk, alex@CleverComponents.com
+  Unit: ccIBPumpVCL7, Delphi 7 version
+  Version: 1.0
+}
+
+package ccIBPumpVCL7;
+
+{$INCLUDE ccGetVer.inc}
+{$R *.RES}
+{$R 'ccIBPumpVCL.dcr'}
+{$ALIGN ON}
+{$ASSERTIONS ON}
+{$BOOLEVAL OFF}
+{$DEBUGINFO OFF}
+{$EXTENDEDSYNTAX ON}
+{$IMPORTEDDATA ON}
+{$IOCHECKS ON}
+{$LOCALSYMBOLS ON}
+{$LONGSTRINGS ON}
+{$OPENSTRINGS ON}
+{$OPTIMIZATION ON}
+{$OVERFLOWCHECKS OFF}
+{$RANGECHECKS OFF}
+{$REFERENCEINFO ON}
+{$SAFEDIVIDE OFF}
+{$STACKFRAMES OFF}
+{$TYPEDADDRESS OFF}
+{$VARSTRINGCHECKS ON}
+{$WRITEABLECONST ON}
+{$MINENUMSIZE 1}
+{$IMAGEBASE $400000}
+{$DESCRIPTION 'CleverComponents Interbase DataPump VCL'}
+{$IMPLICITBUILD OFF}
+
+requires
+
+  Vcl,
+  Vcldb,
+  designide;
+
+contains
+  ccIBPumpVCLReg in 'ccIBPumpVCLReg.pas',
+  ccSpinEdit in 'ccSpinEdit.pas',
+  ccTreeView in 'ccTreeView.pas',
+  ccTreeViewEditor in 'ccTreeViewEditor.pas',
+  ccTreeViewItemsEditor in 'ccTreeViewItemsEditor.pas';
+
+end.
+
+

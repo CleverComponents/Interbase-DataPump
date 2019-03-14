@@ -1,0 +1,74 @@
+Copyright (c) 2000-2019 CleverComponents.com
+Product: Interbase DataPump 
+Author: Alexandre Poloziouk
+Version: 3.5s3
+
+PLEASE _STRICTLY_ FOLLOW INSTALLATION STEPS:
+
+1. You MUST have all latest updates for Delphi and Interbase Express Library (IBX) installed.
+   Visit www.borland.com for more informations regarding updates.
+
+2. Install ccIBPumpVCL
+  ccIBPumpVCL library include TccTreeView, TccSpinEdit and TccButonEdit components.
+  - run Delphi then open and install ccIBPumpVCL5.dpk (Delphi 5), ccIBPumpVCL6.dpk (Delphi 6)
+    or ccIBPumpVCL7.dpk (Delphi 7)
+  - go to Delphi Environment Options dialog and add path to ccIBPumpVCL to Library paths
+
+3. The current version of IBPump utilizes the non-free library Clever Internet Suite for displaying the news line.
+  This is a drawback, and we suggest the task of changing the program so that it does the same job without the non-free library.
+  Optionally, you can disable this library by commenting the CCNEWS compiler conditional define within the ccGetVer.inc file.
+
+  For compiling the IBPump with Clever Internet Suite, download and install the Clever Internet Suite library using the link below:
+  https://www.clevercomponents.com/downloads/inetsuite/suitedownload.asp
+
+4. Compile IBDataPump
+  - first you need to fix some bugs in Borland ADODB.pas 
+  - copy ADODB.pas from $(DELPHI)\Source\Vcl\ to the same directory with IBPump.dpr and IBPumpPlug.dpr (IBDataPump by default)
+  - find following code and add line to fix known problem with Required attributes 
+  
+    { Determine if the field's property list contains an ISAUTOINCREMENT entry }
+    procedure AddFieldDef(F: Field; FieldDefs: TFieldDefs);
+    var
+      FieldType: TFieldType;
+      FieldDef: TFieldDef;
+      I: Integer;
+      FName: string;
+      FSize: Integer;
+      FPrecision: Integer;
+    begin
+      FieldType := ADOTypeToFieldType(F.Type_, EnableBCD);
+      if FieldType <> ftUnknown then
+      begin
+        FSize := 0;
+        FPrecision := 0;
+        FieldDef := FieldDefs.AddFieldDef;
+  
+        // ****Bug Fix A. Schmidt 23.10.2001****
+        FieldDef.Required := (F.Attributes and adFldIsNullable)=0;
+  - find following line:
+      if TagVariant(IndexInfo.Fields[SOrdinalPosition].Value).ulVal > 1 then
+    and replace it with:
+      if IndexDefs.IndexOf(VarToStr(IndexInfo.Fields[SIndexName].Value)) <> -1 then // ****Bug Fix Troy Wolbrink  01.11.2001****
+
+  - now you can open and compile IBPump.dpr and IBPumpPlug.dpr projects
+
+    Please note that all versions of Delphi 5 and Delphi 6 are supported.
+
+5. IMPORTANT : Please remember that all Interbase DataPump forms and modules 
+   contains links to ibpDM.pas module and you will have to open ibpDM module 
+   first before compile or change anything.
+
+6. Read END-USER LICENSE AGREEMENT (EULA.txt) before start using this software.
+
+Contributors:
+
+Claude GUTH. 14.03.2019
+  - dynamic creation of the cc components so it compiles with a standard D7 (no need to install the components);
+  - correction of the qryFree SQL;
+  - the qryFree is created dynamically. Other query and IBSql could be created dynamically to clean up the dfm;
+  - minor adjustments of layout (buttons too close from edges...).
+
+If you have any questions or concerns please contact us at https://www.clevercomponents.com/portal/
+or visit www.CleverComponents.com and we will happy to help you.
+
+Sincerely yours CleverComponents Team
