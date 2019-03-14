@@ -47,7 +47,9 @@ void __fastcall TForm1::RunSilentClick(TObject *Sender)
   AnsiString AProfile, ASourceFile, ADestFile;
   Memo1->Lines->Clear();
   AProfile = "E:\\Progs\\IBDataPump\\DbDemos1.ibp";
+// path/connection string to source database if different from profile 
 //  ASourceFile = "d:\\ibdata\\bs.gdb";
+// path to dest database if different from profile 
 //  ADestFile = "d:\\ibdata\\bstest.gdb";
   ASourceFile = "";
   ADestFile = "";

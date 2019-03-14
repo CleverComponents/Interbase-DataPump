@@ -407,8 +407,6 @@ type
     FStat: TibPumpStatCollection;
 
     // ccCompos
-    eSourceDatabase: TccButtonEdit;
-    eDestDatabase: TccButtonEdit;
     upDestDialect: TccSpinEdit;
     upErrCnt: TccSpinEdit;
     upCommit: TccSpinEdit;
@@ -466,6 +464,8 @@ type
     tvDest: TccTreeView;
     tvSourceTr: TccTreeView;
     tvDestTr: TccTreeView;
+    eSourceDatabase: TccButtonEdit;
+    eDestDatabase: TccButtonEdit;
 
     function GetSourceDB: string;
     function GetDestDB: string;
