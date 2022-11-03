@@ -1358,7 +1358,7 @@ begin
     TabOrder:= 0;
     OnButtonClick:= ccSaveReportButtonClick;
   end;
-
+
   FStat := TibPumpStatCollection.Create(TibPumpStatItem);
   FDM := TibpDM.Create(Self);
   FDM.OnGetUserInfo := GetUserInfo;
