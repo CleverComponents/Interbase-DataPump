@@ -457,7 +457,7 @@ type
   public
 {$IFDEF CCNEWS}
     FCCNews: TclDownLoader;
-{$ENDIF}    
+{$ENDIF}
 
     // ccCompos
     tvSource: TccTreeView;
@@ -543,7 +543,7 @@ const
   arRequired: array[boolean] of string = ('', 'Required');
   PumpMsgDlgType: array[TMsgDlgType] of string = ('Warning', 'Error', 'Information', 'Confirmation', 'Custom');
 
-  AppVersion = '3.5s3';
+  AppVersion = '3.5s4';
   AppTitle = 'Interbase DataPump v ';
   AppHome = 'www.CleverComponents.com';
   AppEmail = 'info@CleverComponents.com';
@@ -1177,7 +1177,8 @@ begin
   eSourceDatabase:= TccButtonEdit.Create(Self);
   with eSourceDatabase do
   begin
-    Parent:= tsDatabases;    Left:= 92;
+    Parent:= tsDatabases;
+    Left:= 92;
     Top:= 24;
     Width:= 426;
     Height:= 21;
@@ -1200,7 +1201,8 @@ begin
   upErrCnt:= TccSpinEdit.Create(Self);
   with upErrCnt do
   begin
-    Parent:= tsPumpProp;    Left:= 94;
+    Parent:= tsPumpProp;
+    Left:= 94;
     Top:= 105;
     Width:= 81;
     Height:= 21;
@@ -1350,7 +1352,8 @@ begin
   ccSaveReport:= TccButtonEdit.Create(Self);
   with ccSaveReport do
   begin
-    Parent:= pStepThreeBottom;      Left:= 85;
+    Parent:= pStepThreeBottom;  
+    Left:= 85;
     Top:= 3;
     Width:= 480;
     Height:= 21;
@@ -1358,7 +1361,7 @@ begin
     TabOrder:= 0;
     OnButtonClick:= ccSaveReportButtonClick;
   end;
-
+
   FStat := TibPumpStatCollection.Create(TibPumpStatItem);
   FDM := TibpDM.Create(Self);
   FDM.OnGetUserInfo := GetUserInfo;
@@ -2441,103 +2444,242 @@ begin
 end;
 
 procedure TibpMain.FillDestDef;
+
+type
+  TTabCounts = record
+    FDetail : Integer;
+    FMaster : Integer;
+  end;
+
 var
   lst, rd, lcmp: TStringList;
   nd, nrc, tmp: TccTreeNode;
   i, j, k: integer;
   loop, loopinf: TStringList;
-  qryFree: TIBQuery;
+  disabledFK : TStringList;
+  tabCounts : array of TTabCounts;
+  found : Boolean;
+  fldDepDetail, fldDepMaster, fldDepFK : TField;
+
+  // recursive, return index of loop start or -1
+  function walkTable(i : integer; var unmark : boolean) : integer;
+  const
+    mark : Pointer = Pointer(1);
+
+  var
+    bm : TBookmark;
+    n  : Integer;
+    fk : String;
+
+  begin
+    Result := -1;
+
+    // mark as walked
+    loop.Objects[i] := mark;
+    if not qryDep.Locate(fldDepDetail.FieldName, loop[i], [])
+    then Exit;
+
+    while Result = -1 do
+    begin
+      // check master table
+      n := loop.IndexOf(Trim(fldDepMaster.AsString));
+      if n < 0
+      then Exit;
+
+      // put fk name
+      fk := Trim(fldDepFK.AsString);
+      loopinf.Add(fk);
+
+      if Assigned(loop.Objects[n])
+      then begin
+        if i = n
+        then unmark := true;
+
+        Result := n;
+        Exit;
+      end;
+
+      bm := qryDep.GetBookmark;
+      Result := walkTable(n, unmark);
+
+      if Result >= 0
+      then begin
+        if i = Result                // loop started here
+        then unmark := true
+        else if unmark               // unmark tables that is not a part of the loop
+        then begin
+          loop.Objects[i] := nil;
+          loopinf.Delete(loopinf.IndexOf(fk));
+        end;
+
+        qryDep.FreeBookmark(bm);
+        Exit;
+      end;
+
+      loopinf.Delete(loopinf.Count - 1);
+      qryDep.GotoBookmark(bm);
+      qryDep.FreeBookmark(bm);
+
+      if not qryDep.LocateNext(fldDepDetail.FieldName, loop[i], [])
+      then Exit;
+    end;
+  end;
+
+  function findLoops : boolean;
+  var
+    u : Boolean;
+    i : Integer;
+  begin
+    Result := false;
+
+    // put all tables that makes a loops into 'loop' list
+    for i := 0 to lst.Count - 1 do
+      if (tabCounts[i].FDetail > 0) and (tabCounts[i].FMaster > 0)
+      then loop.Add(lst[i]);
+
+    if loop.Count = 0
+    then Exit;
+
+    u := false;
+    Result := (walkTable(0, u) >= 0);
+
+    // delete not marked items
+    i := 0;
+    while i < loop.Count do
+      if not Assigned(loop.Objects[i])
+      then loop.Delete(i)
+      else Inc(i);
+  end;
+
 begin
   FDM.DBDest.Connected := True;
   try
     FDM.DBDest.DefaultTransaction.StartTransaction;
+
     lst := TStringList.Create;
     rd := TStringList.Create;
     lcmp := TStringList.Create;
     loop := TStringList.Create;
     loopinf := TStringList.Create;
+    disabledFK := TStringList.Create;
+
     tvDest.Items.BeginUpdate;
     try
       FDM.DBDest.GetTableNames(lst);
+      lst.Sort;
+      SetLength(tabCounts, lst.Count);
 
+      // get counts as detail\master for all relations
       qryDep.Open;
 
-      qryFree:= FDM.GetIBQuery(FDM.DBDest,
-                     'select rdb$relation_name as name '
-                   + 'from rdb$relations '
-                   + 'where rdb$view_blr is null '
-                   + 'and (rdb$system_flag is null or rdb$system_flag = 0) '
-                   + 'order by RDB$RELATION_NAME');
-      qryFree.Open;
-      try
-        qryFree.First;
-        while not qryFree.EOF do
-        begin
-          rd.Add(TrimRight(qryFree.Fields[0].AsString));
-          i := lst.IndexOf(rd[rd.Count-1]);
-          lst.Delete(i);
-          DelDep(rd[rd.Count-1]);
-          qryFree.Next;
-        end;
-      finally
-        qryFree.Close;
-        qryFree.Free;
-      end;
+      // fields are: detail, fk, master, pk
+      fldDepDetail := qryDep.Fields[0];
+      fldDepFK     := qryDep.Fields[1];
+      fldDepMaster := qryDep.Fields[2];
 
-      rd.Sort;
-      lst.Sort;
-
-      loop.Clear;
-      loopinf.Clear;
-      while lst.Count <> 0 do
+      qryDep.First;
+      while not qryDep.Eof do
       begin
-        // Check for loop
-        if FixLocate(qryDep, 'DEP', lst[0]) then
-        begin
-          if loop.IndexOf(Trim(qryDep.FindField('DEP').AsString)) >= 0 then
-          begin
-            PumpDlg('Can not continue - Loop found! Tables in loop: ' +  loop.CommaText + '. Ref Constraints: ' + loopinf.CommaText +
-                        '. To resolve loop you need to alter or temporary delete one of this ref constraints. ' +
-                        'After data pumping finished you can restore it again. ' +
-                        'Please read help to get more info.');
-            Abort;
-          end;
-
-          i := lst.IndexOf(TrimRight(qryDep.FindField('SOURCE').AsString));
-
-          if i <> 0 then
-          begin
-            loop.Add(TrimRight(qryDep.FindField('DEP').AsString));
-            loopinf.Add(TrimRight(qryDep.FindField('RDB$CONSTRAINT_NAME').AsString));
-          end;
-
-          if i = -1 then
-          begin
-            // mistake in algorithm found
-            PumpDlg(lst[0] +'-' + Trim(qryDep.FindField('SOURCE').AsString));
-          end;
-          if i = 0 then
-          begin
-            // loop here - delete this link
-            qryDep.Delete;
-          end
-          else
-          begin
-            // link found - swap it
-            lst.Move(0, lst.Count-1);
-          end;
+        if cbLoop.Checked and (Trim(fldDepDetail.AsString) = Trim(fldDepMaster.AsString))
+        then begin
+          disabledFK.Add(Trim(fldDepFK.AsString));
+          qryDep.Delete;
         end
-        else
-        begin
-          // 0 element have no constraints now
-          rd.Add(TrimRight(lst[0]));
-          DelDep(lst[0]);
-          lst.Delete(0);
+        else begin
+          i := lst.IndexOf(Trim(fldDepDetail.AsString));
+          if i >= 0
+          then Inc(tabCounts[i].FDetail);
 
-          loop.Clear;
-          loopinf.Clear;
+          i := lst.IndexOf(Trim(fldDepMaster.AsString));
+          if i >= 0
+          then Inc(tabCounts[i].FMaster);
+
+          qryDep.Next;
         end;
       end;
+
+      // add tables into 'rd' list in the correct order
+
+      // first add tables with no FK relationships
+      for i := 0 to lst.Count - 1 do
+        if (tabCounts[i].FDetail = 0) and (tabCounts[i].FMaster = 0)
+        then rd.Add(lst[i]);
+
+      // then add other tables, independent first
+      while True do
+      begin
+        found := false;
+        for i := 0 to lst.Count - 1 do
+          if (tabCounts[i].FDetail = 0) and (tabCounts[i].FMaster <> 0)
+          then begin
+            found := true;
+            rd.Add(lst[i]);
+
+            while qryDep.Locate(fldDepMaster.FieldName, lst[i], []) do
+            begin
+              Dec(tabCounts[i].FMaster);
+
+              j := lst.IndexOf(Trim(fldDepDetail.AsString));
+              if j >= 0
+              then begin
+                Dec(tabCounts[j].FDetail);
+
+                if (tabCounts[j].FDetail = 0) and (tabCounts[j].FMaster = 0)
+                then rd.Add(lst[j]);
+              end;
+
+              qryDep.Delete;
+            end;
+          end;
+
+        if rd.Count = lst.Count
+        then Break;
+
+        if found
+        then Continue;
+
+        // find one loop details
+        if not findLoops
+        then begin
+          PumpDlg('Loop is expected but not foung, bug ?');
+          Abort;
+        end;
+
+        if not cbLoop.Checked
+        then begin
+          PumpDlg('Can not continue - Loop found!'#13 +
+                  ' Tables in loop: ' +  loop.CommaText + '.'#13 +
+                  ' Ref Constraints: ' + loopinf.CommaText + '.'#13#13 +
+                  'To resolve loop you need to alter or temporary delete one of this ref constraints. '#13 +
+                  'After data pumping finished you can restore it again. '#13 +
+                  'Please read help to get more info.');
+          Abort;
+        end;
+
+        // Disable FK to break a loop and repeat
+        disabledFK.Add(loopinf[0]);
+
+        if qryDep.Locate(fldDepFK.FieldName, loopinf[0], [])
+        then begin
+          i := lst.IndexOf(Trim(fldDepDetail.AsString));
+          if (i >= 0)
+          then Dec(tabCounts[i].FDetail);
+
+          i := lst.IndexOf(Trim(fldDepMaster.AsString));
+          if (i >= 0)
+          then Dec(tabCounts[i].FMaster);
+
+          if (tabCounts[i].FDetail = 0) and (tabCounts[i].FMaster = 0)
+          then rd.Add(lst[i]);
+
+          qryDep.Delete;
+        end;
+
+        loop.Clear;
+        loopinf.Clear;
+      end;
+
+      disabledFK.Sort;
 
       tvDest.Items.Clear;
       for i := 0 to rd.Count-1 do
@@ -2609,7 +2751,16 @@ begin
             tmp := tvDest.Items.AddChild(nrc, TrimRight(qryDep.FindField('RDB$CONSTRAINT_NAME').AsString));
             tmp.InfoText := TrimRight(qryDep.FindField('SOURCE').AsString);
             tmp.ImageIndex := Integer(picRefConst);
-            if tmp.InfoText = nd.TheText then nd.ImageIndex := Integer(picTableLoop);
+
+            if disabledFK.IndexOf(Trim(qryDep.FindField('RDB$CONSTRAINT_NAME').AsString)) >= 0
+            then begin
+              nd.ImageIndex := Integer(picTableLoop);
+              tmp.Tag := 1;    // mark FK node as disabled
+
+              nrc.Expanded := True;
+              nd.Expanded  := True;
+            end;
+
             inc(j);
             FillFK(tmp);
             qryDep.Next;
@@ -2647,8 +2798,10 @@ begin
       lcmp.Free;
       loop.Free;
       loopinf.Free;
+      disabledFK.Free;
       tvDest.Items.EndUpdate;
       qryDep.Close;
+      SetLength(tabCounts, 0);
     end;
   finally
     FDM.DBDest.Connected := False;
@@ -3141,11 +3294,14 @@ begin
   if (TreeNode.SelectedIndex in [Integer(picDestField), Integer(picSourceField)]) and
      (TreeNode.Data <> nil)
     then AFont.Style := [fsUnderline];
+
+  // To be disabled FK
   if (TreeNode.SelectedIndex = Integer(picRefConst)) and
-     (TreeNode.Parent.Parent.TheText = TreeNode.InfoText) then
+     (TreeNode.Tag = 1) then
   begin
     AFont.Style := AFont.Style + [fsUnderline];
   end;
+
   if Pos(#0, TreeNode.Text) > 0 then
   begin
     AFont.Style := AFont.Style + [fsBold];
@@ -3673,7 +3829,7 @@ end;
 procedure TibpMain.AlterConst(lOn: boolean);
 var
   nd, rn, cons, fk, rk, opt: TccTreeNode;
-  ASQLCons, ASQLFields, ASQLFieldsRel, ASQLTable: string;
+  ASQLCons, ASQLFields, ASQLFieldsRel, ASQLTable, AMaster: string;
 begin
   if not cbLoop.Checked then Exit;
   if lOn
@@ -3688,10 +3844,11 @@ begin
       cons := rn.GetFirstChild;
       while cons <> nil do
       begin
-        if cons.InfoText = nd.TheText then
+        if cons.Tag = 1 then // disabled FK found
         begin
           ASQLTable := GetSQLName(nd.TheText, pdtIB, DestDialect);
-          ASQLCons := GetSQLName(cons.TheText, pdtIB, DestDialect);
+          AMaster   := GetSQLName(cons.InfoText, pdtIB, DestDialect);
+          ASQLCons  := GetSQLName(cons.TheText, pdtIB, DestDialect);
           qryDest.Close;
           qryDest.SQL.Clear;
           if lOn then
@@ -3704,7 +3861,7 @@ begin
             qryDest.SQL.Add(Format('ALTER TABLE %s', [ASQLTable]));
             qryDest.SQL.Add(Format(' ADD CONSTRAINT %s', [ASQLCons]));
             qryDest.SQL.Add(Format('  FOREIGN KEY (%s)', [ASQLFields]));
-            qryDest.SQL.Add(Format('  REFERENCES %s (%s) %s', [ASQLTable, ASQLFieldsRel, opt.InfoText]));
+            qryDest.SQL.Add(Format('  REFERENCES %s (%s) %s', [AMaster, ASQLFieldsRel, opt.InfoText]));
           end
           else
           begin
@@ -5397,5 +5554,3 @@ finalization
   end;
 
 end.
-
-
